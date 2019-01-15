@@ -10,9 +10,12 @@ class Product(models.Model):
     _inherit = "product.product"
     lots_sequence = fields.Integer(default=0)
 
+
 class StockMoveLine(models.Model):
     _inherit = "stock.move.line"
     active = fields.Boolean(default=True)
+    done_qty_uom = fields.Char("Qty")
+
     @api.multi
     def write(self, vals):
         lot_id = vals.get('lot_id')
@@ -40,6 +43,7 @@ class StockMoveLine(models.Model):
                 lot_id.write(res)
         return super(StockMoveLine, self).write(vals)
 
+
 class Stock(models.Model):
     _inherit = "stock.move"
     lots_count = fields.Integer(copy=False)
@@ -52,6 +56,14 @@ class Stock(models.Model):
         for record in self:
             if vals.get('lots_count') and record.product_id:
                 record.product_id.lots_sequence += vals.get('lots_count')
+            # add product qty in lot name - vishal
+            for line in record.move_line_ids:
+                if line.lot_name:
+                    old_lot_name = line.lot_name
+                    if line.done_qty_uom:
+                        old_lot_name = line.lot_name.replace(line.done_qty_uom,'')
+                    line.lot_name = old_lot_name + '-%s%s' % (line.qty_done, line.product_uom_id.name)
+                    line.done_qty_uom = '-%s%s' % (line.qty_done, line.product_uom_id.name)
         return res
 
     @api.model
